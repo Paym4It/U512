@@ -1,0 +1,35 @@
+# Foundry and Soldeer
+/dependencies/
+/out/
+/cache/
+/broadcast/
+/snapshots/
+
+# Operational and temporary files
+/tmp/
+*.log
+
+# Environment files and secrets
+.env
+*.env
+*.env.*
+!*.env.example
+!*.env.*.example
+
+# Keys and credentials
+*.key
+*.pem
+*.asc
+*.gpg
+
+# Coverage and generated reports
+/coverage/
+lcov.info
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

@@ -1,0 +1,10 @@
+[tools]
+foundry = "1.5.1"
+
+[tasks.setup]
+description = "Install the pinned toolchain and Solidity development dependencies"
+run = [
+  "mise install",
+  "test -f soldeer.toml || forge soldeer init --config-location soldeer",
+  "forge soldeer install --config-location soldeer --clean",
+]

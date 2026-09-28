@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    name: U512 validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Mise toolchain
+        uses: jdx/mise-action@v2
+        with:
+          cache: true
+
+      - name: Trust repository configuration
+        run: mise trust "$GITHUB_WORKSPACE/.mise.toml"
+
+      - name: Install Solidity development dependencies
+        run: |
+          mise exec -- \
+            forge soldeer install \
+              --config-location soldeer \
+              --clean
+
+      - name: Verify licensing and dependency boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          test -f LICENSE
+          test -f COPYRIGHT
+          test -f THIRD_PARTY_NOTICES.md
+
+          grep -F "GNU AFFERO GENERAL PUBLIC LICENSE" LICENSE
+          grep -F "Copyright (C) 2026 Hirme Labs LLC" COPYRIGHT
+
+          mapfile -t solidity_files < <(
+            git ls-files |
+              grep -E '^(src|test|examples|script)/.*\.sol$' |
+              sort
+          )
+
+          test "${#solidity_files[@]}" -gt 0
+
+          for file in "${solidity_files[@]}"; do
+            test "$(sed -n '1p' "$file")" = \
+              "// SPDX-License-Identifier: AGPL-3.0-or-later"
+            test "$(sed -n '2p' "$file")" = \
+              "// Copyright (C) 2026 Hirme Labs LLC"
+          done
+
+          mapfile -t production_files < <(
+            git ls-files |
+              grep -E '^src/.*\.sol$' |
+              sort
+          )
+
+          for file in "${production_files[@]}"; do
+            if grep -nE \
+              '^[[:space:]]*import[[:space:]]' \
+              "$file"
+            then
+              exit 1
+            fi
+          done
+
+      - name: Check formatting
+        run: mise exec -- forge fmt --check
+
+      - name: Build
+        run: mise exec -- forge build --no-cache
+
+      - name: Verify test census
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          count="$(
+            NO_COLOR=1 mise exec -- forge test --list |
+              awk '
+                /^[[:space:]]+(test|invariant)[[:alnum:]_]*(\([^)]*\))?[[:space:]]*$/ {
+                  total++
+                }
+                END {
+                  print total + 0
+                }
+              '
+          )"
+
+          test "$count" = "78"
+
+      - name: Test
+        run: mise exec -- forge test
